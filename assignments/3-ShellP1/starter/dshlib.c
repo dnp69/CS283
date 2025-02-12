@@ -32,8 +32,76 @@
  *  Standard Library Functions You Might Want To Consider Using
  *      memset(), strcmp(), strcpy(), strtok(), strlen(), strchr()
  */
-int build_cmd_list(char *cmd_line, command_list_t *clist)
-{
-    printf(M_NOT_IMPL);
-    return EXIT_NOT_IMPL;
+int build_cmd_list(char *cmd_line, command_list_t *clist) {
+
+    clist->num = 0;
+
+    if (cmd_line == NULL || *cmd_line == '\0') {
+        return WARN_NO_CMDS;
+    }
+
+    char *command = cmd_line;
+    while (command != NULL && *command != '\0') {
+        
+        while (*command == ' ') {
+            command++;
+        }
+
+        if (clist->num >= CMD_MAX) {
+            return ERR_TOO_MANY_COMMANDS;
+        }
+
+        char *pipe = strchr(command, '|');
+        if (pipe != NULL) {
+            *pipe = '\0';
+        }
+
+        char *space_end = command + strlen(command) - 1;
+        while (space_end > command && isspace((unsigned char)*space_end)) {
+            space_end--;
+        }
+        *(space_end + 1) = '\0';
+
+        if (*command == '\0') {
+            if (pipe != NULL) {
+                command = pipe + 1;
+                continue;
+            }
+            break;
+        }
+
+        char *exe = command;
+        char *args = strchr(command, ' ');
+        if (args != NULL) {
+            *args = '\0';
+            args++;
+        }
+
+        if (strlen(exe) >= EXE_MAX) {
+            return ERR_CMD_OR_ARGS_TOO_BIG;
+        }
+        if (args && strlen(args) >= ARG_MAX) {
+            return ERR_CMD_OR_ARGS_TOO_BIG;
+        }
+
+        strncpy(clist->commands[clist->num].exe, exe, EXE_MAX);
+        clist->commands[clist->num].exe[EXE_MAX - 1] = '\0';
+
+        if (args) {
+            strncpy(clist->commands[clist->num].args, args, ARG_MAX);
+            clist->commands[clist->num].args[ARG_MAX - 1] = '\0';
+        } else {
+            clist->commands[clist->num].args[0] = '\0';
+        }
+
+        clist->num++;
+
+        if (pipe != NULL) {
+            command = pipe + 1;
+        } else {
+            break;
+        }
+    }
+
+    return OK;
 }
