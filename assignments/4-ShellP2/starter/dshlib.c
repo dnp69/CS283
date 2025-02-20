@@ -51,21 +51,136 @@
  *  Standard Library Functions You Might Want To Consider Using (assignment 2+)
  *      fork(), execvp(), exit(), chdir()
  */
+void trim(char *input, cmd_buff_t *cmd)
+{
+    cmd->argc = 0;
+    bool in_quotes = false;
+    char *start = input, *arg_start = NULL;
+    int arg_len = 0;
+
+    while (*start && isspace((unsigned char)*start)) // Trim leading spaces
+        start++;
+
+    char *dest = cmd->_cmd_buffer;
+    while (*start)
+    {
+        if (*start == '"')
+        {
+            in_quotes = !in_quotes; // Toggle quotes mode
+        }
+        else if (!in_quotes && isspace((unsigned char)*start))
+        {
+            if (arg_len > 0) // End of an argument
+            {
+                *dest++ = '\0';
+                cmd->argv[cmd->argc++] = arg_start;
+                arg_len = 0;
+            }
+        }
+        else
+        {
+            if (arg_len == 0) // Start of a new argument
+                arg_start = dest;
+            *dest++ = *start;
+            arg_len++;
+        }
+        start++;
+    }
+
+    if (arg_len > 0) // Add last argument
+    {
+        *dest++ = '\0';
+        cmd->argv[cmd->argc++] = arg_start;
+    }
+    cmd->argv[cmd->argc] = NULL; // Null-terminate argv list
+}
+
+/*
+ * Main command execution loop.
+ */
 int exec_local_cmd_loop()
 {
-    char *cmd_buff;
-    int rc = 0;
+    int rc = 0; // Return code variable
+    char *cmd_buff; // User input buffer
+
+    cmd_buff = malloc(ARG_MAX);
+    if (!cmd_buff)
+    {
+        fprintf(stderr, "Memory allocation failed\n");
+        return ERR_MEMORY;
+    }
+
     cmd_buff_t cmd;
+    cmd._cmd_buffer = cmd_buff;
 
-    // TODO IMPLEMENT MAIN LOOP
+    while (1)
+    {
+        printf("%s", SH_PROMPT);
+        if (fgets(cmd_buff, ARG_MAX, stdin) == NULL)
+        {
+            printf("\n");
+            break;
+        }
 
-    // TODO IMPLEMENT parsing input to cmd_buff_t *cmd_buff
+        cmd_buff[strcspn(cmd_buff, "\n")] = '\0'; // Remove newline
+        if (strlen(cmd_buff) == 0)
+        {
+            printf(CMD_WARN_NO_CMD);
+            continue;
+        }
 
-    // TODO IMPLEMENT if built-in command, execute builtin logic for exit, cd (extra credit: dragon)
-    // the cd command should chdir to the provided directory; if no directory is provided, do nothing
+        trim(cmd_buff, &cmd);
 
-    // TODO IMPLEMENT if not built-in command, fork/exec as an external command
-    // for example, if the user input is "ls -l", you would fork/exec the command "ls" with the arg "-l"
+        if (cmd.argc == 0)
+        {
+            printf(CMD_WARN_NO_CMD);
+            continue;
+        }
 
-    return OK;
+        if (strcmp(cmd.argv[0], EXIT_CMD) == 0)
+        {
+            free(cmd_buff);
+            exit(0);
+        }
+
+        if (strcmp(cmd.argv[0], "cd") == 0)
+        {
+            if (cmd.argc > 1)
+            {
+                if (chdir(cmd.argv[1]) != 0)
+                {
+                    perror("cd");
+                }
+            }
+            continue;
+        }
+
+        // Fork and execute external commands
+        pid_t pid = fork();
+        if (pid < 0)
+        {
+            perror("fork");
+            continue;
+        }
+        if (pid == 0) // Child process
+        {
+            execvp(cmd.argv[0], cmd.argv);
+            perror("execvp");
+            exit(EXIT_FAILURE);
+        }
+        else // Parent process
+        {
+            int status;
+            waitpid(pid, &status, 0);
+            if (WIFEXITED(status))
+            {
+                int exit_status = WEXITSTATUS(status);
+                if (exit_status != 0)
+                    fprintf(stderr, "Execution failed with exit code %d\n", exit_status);
+            }
+        }
+    }
+
+    free(cmd_buff);
+    return rc; // Return the status code
 }
