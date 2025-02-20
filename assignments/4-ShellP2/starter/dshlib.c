@@ -58,7 +58,7 @@ void trim(char *input, cmd_buff_t *cmd)
     char *start = input, *arg_start = NULL;
     int arg_len = 0;
 
-    while (*start && isspace((unsigned char)*start)) // Trim leading spaces
+    while (*start && isspace((unsigned char)*start))
         start++;
 
     char *dest = cmd->_cmd_buffer;
@@ -66,11 +66,11 @@ void trim(char *input, cmd_buff_t *cmd)
     {
         if (*start == '"')
         {
-            in_quotes = !in_quotes; // Toggle quotes mode
+            in_quotes = !in_quotes;
         }
         else if (!in_quotes && isspace((unsigned char)*start))
         {
-            if (arg_len > 0) // End of an argument
+            if (arg_len > 0)
             {
                 *dest++ = '\0';
                 cmd->argv[cmd->argc++] = arg_start;
@@ -79,7 +79,7 @@ void trim(char *input, cmd_buff_t *cmd)
         }
         else
         {
-            if (arg_len == 0) // Start of a new argument
+            if (arg_len == 0)
                 arg_start = dest;
             *dest++ = *start;
             arg_len++;
@@ -87,21 +87,18 @@ void trim(char *input, cmd_buff_t *cmd)
         start++;
     }
 
-    if (arg_len > 0) // Add last argument
+    if (arg_len > 0)
     {
         *dest++ = '\0';
         cmd->argv[cmd->argc++] = arg_start;
     }
-    cmd->argv[cmd->argc] = NULL; // Null-terminate argv list
+    cmd->argv[cmd->argc] = NULL;
 }
 
-/*
- * Main command execution loop.
- */
 int exec_local_cmd_loop()
 {
-    int rc = 0; // Return code variable
-    char *cmd_buff; // User input buffer
+    int rc = 0;
+    char *cmd_buff;
 
     cmd_buff = malloc(ARG_MAX);
     if (!cmd_buff)
@@ -122,7 +119,7 @@ int exec_local_cmd_loop()
             break;
         }
 
-        cmd_buff[strcspn(cmd_buff, "\n")] = '\0'; // Remove newline
+        cmd_buff[strcspn(cmd_buff, "\n")] = '\0';
         if (strlen(cmd_buff) == 0)
         {
             printf(CMD_WARN_NO_CMD);
@@ -155,20 +152,19 @@ int exec_local_cmd_loop()
             continue;
         }
 
-        // Fork and execute external commands
         pid_t pid = fork();
         if (pid < 0)
         {
             perror("fork");
             continue;
         }
-        if (pid == 0) // Child process
+        if (pid == 0)
         {
             execvp(cmd.argv[0], cmd.argv);
             perror("execvp");
             exit(EXIT_FAILURE);
         }
-        else // Parent process
+        else
         {
             int status;
             waitpid(pid, &status, 0);
@@ -182,5 +178,5 @@ int exec_local_cmd_loop()
     }
 
     free(cmd_buff);
-    return rc; // Return the status code
+    return rc;
 }
